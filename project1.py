@@ -177,15 +177,13 @@ class Edit(Main, QMainWindow):
                 description FROM surveys WHERE title=? and
                 deleted=False""", (self.lineEdit.text(), )))[0]
 
-            print(self.current_survey)
-
             for i in range(self.tableWidget.rowCount()):
                 question_text = self.tableWidget.item(i, 0).text()
                 cur.execute("""INSERT INTO questions
                     (survey_id, question) VALUES (?, ?)""", (
                     str(self.current_survey[0]), question_text))
-
             con.commit()
+
             self.comboBox.addItem(self.current_survey[1])
             if self.comboBox.currentText() != 'Создать новый':
                 self.comboBox.removeItem(self.comboBox.currentIndex())
@@ -204,8 +202,6 @@ class Edit(Main, QMainWindow):
             self.pushButton_delete.setEnabled(True)
             self.lineEdit.setText(self.current_survey[1])
             self.lineEdit_2.setText(self.current_survey[2])
-        self.pushButton_save.setEnabled(False)
-        self.changed = False
         self.display_questions()
 
     def display_questions(self):
@@ -223,6 +219,8 @@ class Edit(Main, QMainWindow):
         else:
             self.current_questions = []
             self.tableWidget.setRowCount(0)
+        self.pushButton_save.setEnabled(False)
+        self.changed = False
 
     def start_edit(self):
         self.show()
