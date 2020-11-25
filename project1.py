@@ -153,49 +153,43 @@ class Edit(Main, QMainWindow):
         self.tableWidget.setRowCount(i + 1)
         self.tableWidget.setItem(i, 0, QTableWidgetItem(''))
         self.tableWidget.resizeColumnToContents(0)
+        self.survey_changed()
 
     def delete_question(self):
         item = self.tableWidget.selectedItems()
         if item:
             self.tableWidget.removeRow(item[0].row())
             self.tableWidget.resizeColumnToContents(0)
+            self.survey_changed()
 
     def save_survey(self):
-        if self.survey_changed:
-            if self.comboBox.currentText() == 'Создать новый':
-                survey_template = """INSERT INTO surveys
-                    (title, description) VALUES (?, ?)"""
-                cur.execute(survey_template,
-                            (self.lineEdit.text(), self.lineEdit_2.text()))
-                self.comboBox.addItem(self.lineEdit.text())
-                self.comboBox.setCurrentText(self.lineEdit.text())
-                self.changed = False
-            else:
-                survey_template = """UPDATE surveys
-                    SET (title, description) = (?, ?)
-                    WHERE id=?"""
-                cur.execute(survey_template,
-                            (self.lineEdit.text(),
-                                self.lineEdit_2.text(),
-                                str(self.current_survey[0])))
+        if self.tableWidget.rowCount() > 0 and self.lineEdit.text() != '':
+            if self.comboBox.currentText() != 'Создать новый':
+                cur.execute("""UPDATE surveys SET deleted=True
+                    WHERE id=?""", (str(self.current_survey[0]), ))
+                cur.execute("""UPDATE questions SET deleted=True
+                    WHERE survey_id=?""", (str(self.current_survey[0]), ))
+
+            cur.execute("""INSERT INTO surveys (title, description) VALUES
+                (?, ?)""", (self.lineEdit.text(), self.lineEdit_2.text()))
 
             self.current_survey = list(cur.execute("""SELECT id, title,
                 description FROM surveys WHERE title=? and
                 deleted=False""", (self.lineEdit.text(), )))[0]
 
-            cur.execute("""UPDATE questions SET deleted=True
-                WHERE survey_id=?""", (str(self.current_survey[0]), ))
-
-            question_template = """INSERT INTO questions
-                    (survey_id, question) VALUES (?, ?)"""
+            print(self.current_survey)
 
             for i in range(self.tableWidget.rowCount()):
                 question_text = self.tableWidget.item(i, 0).text()
-                cur.execute(question_template, (
+                cur.execute("""INSERT INTO questions
+                    (survey_id, question) VALUES (?, ?)""", (
                     str(self.current_survey[0]), question_text))
 
             con.commit()
-            self.pushButton_save.setEnabled(False)
+            self.comboBox.addItem(self.current_survey[1])
+            if self.comboBox.currentText() != 'Создать новый':
+                self.comboBox.removeItem(self.comboBox.currentIndex())
+            self.comboBox.setCurrentText(self.current_survey[1])
 
     def display_survey(self):
         if self.comboBox.currentText() == 'Создать новый':
