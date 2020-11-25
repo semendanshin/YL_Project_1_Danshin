@@ -2,7 +2,7 @@ import sys
 import sqlite3
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidgetItem
-# Сделать аккаунты; Добавить автосохранение во вкладке edit; Проверка на пустые поля в edit; css оформление; Изменить сохранение опросов в edit
+# Сделать аккаунты; Добавить автосохранение во вкладке edit; Проверка на повторяющиеся поля в edit; css оформление;
 
 
 class Main(QMainWindow):
