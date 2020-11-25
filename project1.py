@@ -2,7 +2,7 @@ import sys
 import sqlite3
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidgetItem
-# Сделать аккаунты; Добавить автосохранение во вкладке edit; Проверка на пустые поля в edit; css оформление
+# Сделать аккаунты; Добавить автосохранение во вкладке edit; Проверка на пустые поля в edit; css оформление; Изменить сохранение опросов в edit
 
 
 class Main(QMainWindow):
@@ -88,7 +88,7 @@ class Survey(Main, QMainWindow):
         self.end_survey()
 
     def start_survey(self):
-        self.parent.hide()
+        self.parent.setEnabled(False)
         self.show()
         title = self.parent.comboBox.currentText()
         self.setWindowTitle(title)
@@ -104,14 +104,14 @@ class Survey(Main, QMainWindow):
 
     def end_survey(self):
         self.hide()
-        self.parent.show()
+        self.parent.setEnabled(True)
 
 
 class Edit(Main, QMainWindow):
     def __init__(self, parent):
-        self.parent = parent
         super(QMainWindow, self).__init__()
         uic.loadUi('edit_form.ui', self)
+        self.parent = parent
         self.changed = False
         self.current_survey = []
         self.pushButton_save.setEnabled(False)
@@ -131,6 +131,7 @@ class Edit(Main, QMainWindow):
         self.tableWidget.resizeColumnToContents(0)
 
     def survey_changed(self):
+        self.tableWidget.resizeColumnToContents(0)
         self.pushButton_save.setEnabled(True)
         self.changed = True
 
@@ -161,14 +162,14 @@ class Edit(Main, QMainWindow):
 
     def save_survey(self):
         if self.survey_changed:
-            question_template = """INSERT INTO questions
-                    (survey_id, question) VALUES (?, ?)"""
-
             if self.comboBox.currentText() == 'Создать новый':
                 survey_template = """INSERT INTO surveys
                     (title, description) VALUES (?, ?)"""
                 cur.execute(survey_template,
                             (self.lineEdit.text(), self.lineEdit_2.text()))
+                self.comboBox.addItem(self.lineEdit.text())
+                self.comboBox.setCurrentText(self.lineEdit.text())
+                self.changed = False
             else:
                 survey_template = """UPDATE surveys
                     SET (title, description) = (?, ?)
@@ -179,22 +180,22 @@ class Edit(Main, QMainWindow):
                                 str(self.current_survey[0])))
 
             self.current_survey = list(cur.execute("""SELECT id, title,
-                description FROM surveys
-                WHERE title=? and
+                description FROM surveys WHERE title=? and
                 deleted=False""", (self.lineEdit.text(), )))[0]
+
             cur.execute("""UPDATE questions SET deleted=True
                 WHERE survey_id=?""", (str(self.current_survey[0]), ))
+
+            question_template = """INSERT INTO questions
+                    (survey_id, question) VALUES (?, ?)"""
 
             for i in range(self.tableWidget.rowCount()):
                 question_text = self.tableWidget.item(i, 0).text()
                 cur.execute(question_template, (
                     str(self.current_survey[0]), question_text))
 
-            self.comboBox.addItem(self.lineEdit.text())
-            self.comboBox.setCurrentText(self.lineEdit.text())
-            self.pushButton_save.setEnabled(False)
-            self.changed = False
             con.commit()
+            self.pushButton_save.setEnabled(False)
 
     def display_survey(self):
         if self.comboBox.currentText() == 'Создать новый':
@@ -202,29 +203,26 @@ class Edit(Main, QMainWindow):
             self.current_survey = []
             self.lineEdit.setText('')
             self.lineEdit_2.setText('')
-            self.display_questions()
         else:
-            self.pushButton_delete.setEnabled(True)
             self.current_survey = list(cur.execute("""SELECT id, title,
                 description FROM surveys WHERE title=?
                 and deleted=False""", (self.comboBox.currentText(), )))[0]
+            self.pushButton_delete.setEnabled(True)
             self.lineEdit.setText(self.current_survey[1])
             self.lineEdit_2.setText(self.current_survey[2])
-            self.display_questions()
         self.pushButton_save.setEnabled(False)
         self.changed = False
+        self.display_questions()
 
     def display_questions(self):
         if self.current_survey:
             self.current_questions = list(cur.execute("""SELECT question
                 FROM questions WHERE survey_id=? and deleted=False
                 ORDER BY id""", (str(self.current_survey[0]), )))
-            print(self.current_questions)
             if self.current_questions:
                 self.tableWidget.setRowCount(len(self.current_questions))
                 for i, el in enumerate(self.current_questions):
                     for j, val in enumerate(el):
-                        print(val)
                         self.tableWidget.setItem(
                             i, j, QTableWidgetItem(str(val)))
                         self.tableWidget.resizeColumnToContents(0)
@@ -234,14 +232,15 @@ class Edit(Main, QMainWindow):
 
     def start_edit(self):
         self.show()
-        self.parent.hide()
+        self.parent.setEnabled(False)
+        self.display_survey()
 
     def end_edit(self):
         self.comboBox.setCurrentText("Создать новый")
         self.current_survey = []
         self.hide()
         self.parent.load_surveys()
-        self.parent.show()
+        self.parent.setEnabled(True)
 
 
 if __name__ == '__main__':
