@@ -104,6 +104,7 @@ class Survey(Main, QMainWindow):
     def end_survey(self):
         self.hide()
         self.parent.setEnabled(True)
+        print()
 
 
 class Edit(Main, QMainWindow):
