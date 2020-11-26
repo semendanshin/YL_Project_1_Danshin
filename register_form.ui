@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>519</width>
-    <height>254</height>
+    <width>639</width>
+    <height>452</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Вход</string>
+   <string>Регистраця</string>
   </property>
   <property name="windowIcon">
    <iconset>
@@ -19,26 +19,10 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="1" column="0">
-     <spacer name="horizontalSpacer">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
-      </property>
-      <property name="sizeType">
-       <enum>QSizePolicy::Fixed</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>5</width>
-        <height>5</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
     <item row="1" column="1">
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <widget class="QLabel" name="label_3">
+       <widget class="QLabel" name="label">
         <property name="text">
          <string>Логин</string>
         </property>
@@ -58,25 +42,95 @@
        <widget class="QLineEdit" name="lineEdit_password"/>
       </item>
       <item>
-       <widget class="QPushButton" name="pushButton_login">
+       <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>Войти</string>
+         <string>Пароль ещё раз</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="pushButton_start_register">
+       <widget class="QLineEdit" name="lineEdit_password2"/>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>Зарегистрироваться</string>
+         <string>Имя</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="pushButton_cancel">
+       <widget class="QLineEdit" name="lineEdit_firstname"/>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_5">
         <property name="text">
-         <string>Отмена</string>
+         <string>Фамилия</string>
         </property>
        </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="lineEdit_secondname"/>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>Возраст</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="spinBox">
+        <property name="maximum">
+         <number>99</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>Пол</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="comboBox">
+        <property name="maxCount">
+         <number>2</number>
+        </property>
+        <item>
+         <property name="text">
+          <string>Мужской</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Женский</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButton_register">
+        <property name="text">
+         <string>Зарегестрироваться</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>5</width>
+          <height>5</height>
+         </size>
+        </property>
+       </spacer>
       </item>
      </layout>
     </item>
@@ -96,10 +150,10 @@
       </property>
      </spacer>
     </item>
-    <item row="0" column="1">
-     <spacer name="verticalSpacer">
+    <item row="1" column="0">
+     <spacer name="horizontalSpacer">
       <property name="orientation">
-       <enum>Qt::Vertical</enum>
+       <enum>Qt::Horizontal</enum>
       </property>
       <property name="sizeType">
        <enum>QSizePolicy::Fixed</enum>
@@ -112,8 +166,8 @@
       </property>
      </spacer>
     </item>
-    <item row="2" column="1">
-     <spacer name="verticalSpacer_2">
+    <item row="0" column="1">
+     <spacer name="verticalSpacer">
       <property name="orientation">
        <enum>Qt::Vertical</enum>
       </property>

@@ -28,6 +28,10 @@
   <property name="windowTitle">
    <string>Средство прохождения опросов</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>Лого/ЛогоПроект.png</normaloff>Лого/ЛогоПроект.png</iconset>
+  </property>
   <property name="dockOptions">
    <set>QMainWindow::AllowTabbedDocks|QMainWindow::AnimatedDocks</set>
   </property>
@@ -67,14 +71,14 @@
          </spacer>
         </item>
         <item>
-         <widget class="QLabel" name="label_2">
+         <widget class="QLabel" name="label_name">
           <property name="text">
            <string/>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="pushButton_login">
+         <widget class="QPushButton" name="pushButton_start_login">
           <property name="text">
            <string>Вход/Регистрицаия</string>
           </property>

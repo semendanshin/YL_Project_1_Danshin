@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>Создание/Редактирование опросов</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>Лого/ЛогоПроект.png</normaloff>Лого/ЛогоПроект.png</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
     <item row="8" column="2">
