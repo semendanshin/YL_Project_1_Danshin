@@ -3,7 +3,7 @@ import sqlite3
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox
-# Сделать аккаунты; Добавить автосохранение во вкладке edit; css оформление; Добавить обязательные вопросы; Экспорт
+# Сделать аккаунты; Добавить автосохранение во вкладке edit; css оформление; Добавить обязательные вопросы; Экспорт; Сделать иконку
 
 
 class Main(QMainWindow):
@@ -11,20 +11,25 @@ class Main(QMainWindow):
         super().__init__()
         uic.loadUi('main_form.ui', self)
         self.show()
-        self.load_surveys()
+        self.curent_user = []
         self.survey_window = Survey(self)
         self.edit_window = Edit(self)
+        self.login_window = Login(self)
         self.pushButton_start.clicked.connect(
             self.survey_window.start_survey)
         self.pushButton_new.clicked.connect(
             self.edit_window.start_edit)
+        self.pushButton_login.clicked.connect(
+            self.login_window.start_login)
 
     def load_surveys(self):
-        self.surveys = list(cur.execute(
-            """SELECT id, title FROM surveys
-            WHERE deleted=False ORDER BY title"""))
-        self.comboBox.addItems([el[1] for el in self.surveys])
-        self.pushButton_start.setEnabled(len(self.surveys) != 0)
+        if self.curent_user:
+            self.surveys = list(cur.execute(
+                """SELECT id, title FROM surveys
+                WHERE deleted=False and creator_id=? ORDER BY title""", (
+                    str(self.curent_user[0]))))
+            self.comboBox.addItems([el[1] for el in self.surveys])
+            self.pushButton_start.setEnabled(len(self.surveys) != 0)
 
 
 class Survey(Main, QMainWindow):
@@ -104,7 +109,6 @@ class Survey(Main, QMainWindow):
     def end_survey(self):
         self.hide()
         self.parent.setEnabled(True)
-        print()
 
 
 class Edit(Main, QMainWindow):
@@ -115,7 +119,6 @@ class Edit(Main, QMainWindow):
         self.changed = False
         self.current_survey = []
         self.pushButton_save.setEnabled(False)
-        self.comboBox.addItems([el[1] for el in parent.surveys])
         self.comboBox.currentTextChanged.connect(self.display_survey)
         self.comboBox.highlighted.connect(self.check_for_changes)
         self.pushButton_cancel.clicked.connect(self.end_edit)
@@ -132,6 +135,8 @@ class Edit(Main, QMainWindow):
         self.tableWidget.resizeColumnToContents(0)
 
     def start_edit(self):
+        self.comboBox.clear()
+        self.comboBox.addItems([el[0] for el in self.parent.surveys])
         self.parent.setEnabled(False)
         self.show()
         self.display_survey()
@@ -192,10 +197,10 @@ class Edit(Main, QMainWindow):
 
     def save_survey(self):
         if self.tableWidget.rowCount() > 0 and self.lineEdit.text() != '':
-            surveys = list(cur.execute("""SELECT id, title FROM surveys
+            surveys = list(cur.execute("""SELECT title FROM surveys
             WHERE deleted=False"""))
-            surveys = [el[1] for el in surveys]
-            if self.lineEdit.text() not in surveys:
+            surveys = [el[0] for el in surveys]
+            if self.comboBox.currentText() != 'Создать новый' or self.lineEdit.text() not in surveys:
                 if self.comboBox.currentText() != 'Создать новый':
                     cur.execute("""UPDATE surveys SET deleted=True
                         WHERE id=?""", (str(self.current_survey[0]), ))
@@ -234,7 +239,8 @@ class Edit(Main, QMainWindow):
             msg.setWindowTitle('Ошибка')
             msg.setText('Невозможно сохранить опрос.')
             msg.setInformativeText(
-                'У каждого опроса должно быть уникальное название и, как минимум, один вопрос.')
+                'У каждого опроса должно быть уникальное '
+                'название и, как минимум, один вопрос.')
             msg.exec()
 
     def delete_survey(self):
@@ -256,6 +262,64 @@ class Edit(Main, QMainWindow):
         self.changed = True
 
     def check_for_changes(self):
+        pass
+
+
+class Login(Main, QMainWindow):
+    def __init__(self, parent):
+        super(QMainWindow, self).__init__()
+        uic.loadUi('login_form.ui', self)
+        self.parent = parent
+        self.pushButton_cancel.clicked.connect(self.end_login)
+        self.pushButton_register.clicked.connect(self.register)
+        self.pushButton_login.clicked.connect(self.login)
+
+    def start_login(self):
+        self.show()
+        self.parent.setEnabled(False)
+
+    def end_login(self):
+        self.hide()
+        self.lineEdit_login.setText('')
+        self.lineEdit_password.setText('')
+        self.parent.setEnabled(True)
+
+    def login(self):
+        if len(self.lineEdit_login.text()) > 0 and len(self.lineEdit_password.text()) > 0:
+            logins = [el[0] for el in list(cur.execute("""SELECT login
+                FROM users WHERE deleted=False"""))]
+            if self.lineEdit_login.text() in logins:
+                password = list(cur.execute("""SELECT password FROM users
+                    WHERE login=? and deleted=False""", (
+                    self.lineEdit_login.text(), )))[0][0]
+                if self.lineEdit_password.text() == password:
+                    self.parent.curent_user = list(cur.execute("""SELECT
+                    id, first_name, second_name FROM users WHERE login=?""", (
+                        self.lineEdit_login.text(), )))[0]
+                else:
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Warning)
+                    msg.setWindowTitle('Ошибка')
+                    msg.setText('Вход не выполнен.')
+                    msg.setInformativeText('Неверный пароль.')
+                    msg.exec()
+            else:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Warning)
+                msg.setWindowTitle('Ошибка')
+                msg.setText('Вход не выполнен.')
+                msg.setInformativeText('Неверный логин.')
+                msg.exec()
+        else:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle('Ошибка')
+            msg.setText('Вход не выполнен.')
+            msg.setInformativeText(
+                'Одное или несколько из обязательных полей пустое.')
+            msg.exec()
+
+    def register(self):
         pass
 
 
