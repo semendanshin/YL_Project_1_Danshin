@@ -26,8 +26,8 @@ class Main(QMainWindow):
         if self.curent_user:
             self.surveys = list(cur.execute(
                 """SELECT id, title FROM surveys
-                WHERE deleted=False and creator_id=? ORDER BY title""", (
-                    str(self.curent_user[0]))))
+                WHERE deleted=False ORDER BY title"""))
+            self.comboBox.clear()
             self.comboBox.addItems([el[1] for el in self.surveys])
             self.pushButton_start.setEnabled(len(self.surveys) != 0)
 
@@ -51,7 +51,7 @@ class Survey(Main, QMainWindow):
             self.pushButton_back.setEnabled(self.question_index != 0)
             if self.questions[self.question_index][0] in self.answers:
                 answer = self.answers[
-                    self.questions[self.question_index][0]][1]
+                    self.questions[self.question_index][0]]
                 self.lineEdit.setText(answer)
             else:
                 self.lineEdit.setText("")
@@ -70,7 +70,7 @@ class Survey(Main, QMainWindow):
         self.pushButton_back.setEnabled(self.question_index != 0)
         if self.questions[self.question_index][0] in self.answers:
             answer = self.answers[
-                self.questions[self.question_index][0]][1]
+                self.questions[self.question_index][0]]
             self.lineEdit.setText(answer)
         else:
             self.lineEdit.setText("")
@@ -79,32 +79,36 @@ class Survey(Main, QMainWindow):
         self.pushButton_next.setText("Дальше")
 
     def write_answer(self):
-        self.answers[self.questions[self.question_index][0]] = (
-            1, self.lineEdit.text())
+        self.answers[self.questions[
+            self.question_index][0]] = self.lineEdit.text()
 
     def save_answers(self):
         for el in self.answers.keys():
             cur.execute("""INSERT INTO answers
                 (question_id, user_id, answer) VALUES (?, ?, ?)""", (
-                el, self.answers[el][0], self.answers[el][1]))
+                el, self.parent.curent_user[0], self.answers[el][1]))
         con.commit()
         self.answers.clear()
         self.end_survey()
 
     def start_survey(self):
-        self.parent.setEnabled(False)
-        self.show()
-        title = self.parent.comboBox.currentText()
-        self.setWindowTitle(title)
-        request = f"""SELECT questions.id, surveys.id, question
-            FROM questions JOIN surveys
-            ON questions.survey_id=surveys.id
-            WHERE title='{title}'
-            and questions.deleted=False
-            ORDER BY questions.id"""
-        self.questions = list(cur.execute(request))
-        self.question_index = -1
-        self.next_question()
+        if self.parent.curent_user:
+            self.parent.setEnabled(False)
+            self.show()
+            self.answers.clear()
+            title = self.parent.comboBox.currentText()
+            self.setWindowTitle(title)
+            request = f"""SELECT questions.id, surveys.id, question
+                FROM questions JOIN surveys
+                ON questions.survey_id=surveys.id
+                WHERE title='{title}'
+                and questions.deleted=False
+                ORDER BY questions.id"""
+            self.questions = list(cur.execute(request))
+            self.question_index = -1
+            self.next_question()
+        else:
+            pass
 
     def end_survey(self):
         self.hide()
@@ -119,8 +123,6 @@ class Edit(Main, QMainWindow):
         self.changed = False
         self.current_survey = []
         self.pushButton_save.setEnabled(False)
-        self.comboBox.currentTextChanged.connect(self.display_survey)
-        self.comboBox.highlighted.connect(self.check_for_changes)
         self.pushButton_cancel.clicked.connect(self.end_edit)
         self.pushButton_minus.clicked.connect(self.delete_question)
         self.pushButton_plus.clicked.connect(self.add_question)
@@ -135,33 +137,43 @@ class Edit(Main, QMainWindow):
         self.tableWidget.resizeColumnToContents(0)
 
     def start_edit(self):
-        self.comboBox.clear()
-        self.comboBox.addItems([el[0] for el in self.parent.surveys])
-        self.parent.setEnabled(False)
-        self.show()
-        self.display_survey()
+        if self.parent.curent_user:
+            self.comboBox.currentTextChanged.connect(self.display_survey)
+            self.comboBox.highlighted.connect(self.check_for_changes)
+            self.comboBox.addItems(['Создать новый'] + [
+                el[0] for el in list(cur.execute(
+                    """SELECT title FROM surveys
+                        WHERE deleted=False and creator_id=?""", (
+                        self.parent.curent_user[0], )).fetchall())])
+            self.parent.setEnabled(False)
+            self.show()
+            self.display_survey()
+        else:
+            pass
 
     def end_edit(self):
+        self.comboBox.disconnect()
+        self.current_survey = []
+        self.comboBox.clear()
         self.comboBox.setCurrentText("Создать новый")
-        self.current_survey.clear()
         self.hide()
         self.parent.load_surveys()
         self.parent.setEnabled(True)
 
     def display_survey(self):
-        if self.comboBox.currentText() == 'Создать новый':
-            self.pushButton_delete.setEnabled(False)
-            self.current_survey = []
-            self.current_questions = []
-            self.lineEdit.setText('')
-            self.lineEdit_2.setText('')
-        else:
+        if self.comboBox.currentText() != 'Создать новый':
             self.current_survey = list(cur.execute("""SELECT id, title,
                 description FROM surveys WHERE title=?
                 and deleted=False""", (self.comboBox.currentText(), )))[0]
             self.pushButton_delete.setEnabled(True)
             self.lineEdit.setText(self.current_survey[1])
             self.lineEdit_2.setText(self.current_survey[2])
+        else:
+            self.pushButton_delete.setEnabled(False)
+            self.current_survey = []
+            self.current_questions = []
+            self.lineEdit.setText('')
+            self.lineEdit_2.setText('')
         self.display_questions()
 
     def display_questions(self):
@@ -207,8 +219,12 @@ class Edit(Main, QMainWindow):
                     cur.execute("""UPDATE questions SET deleted=True
                         WHERE survey_id=?""", (str(self.current_survey[0]), ))
 
-                cur.execute("""INSERT INTO surveys (title, description) VALUES
-                    (?, ?)""", (self.lineEdit.text(), self.lineEdit_2.text()))
+                cur.execute("""INSERT INTO surveys
+                    (title, description, creator_id) VALUES
+                    (?, ?, ?)""", (
+                            self.lineEdit.text(),
+                            self.lineEdit_2.text(),
+                            self.parent.curent_user[0]))
 
                 self.current_survey = list(cur.execute("""SELECT id, title,
                     description FROM surveys WHERE title=? and
@@ -283,6 +299,7 @@ class Login(Main, QMainWindow):
         self.lineEdit_login.setText('')
         self.lineEdit_password.setText('')
         self.parent.setEnabled(True)
+        self.parent.load_surveys()
 
     def login(self):
         if len(self.lineEdit_login.text()) > 0 and len(self.lineEdit_password.text()) > 0:
@@ -296,6 +313,7 @@ class Login(Main, QMainWindow):
                     self.parent.curent_user = list(cur.execute("""SELECT
                     id, first_name, second_name FROM users WHERE login=?""", (
                         self.lineEdit_login.text(), )))[0]
+                    self.end_login()
                 else:
                     msg = QMessageBox()
                     msg.setIcon(QMessageBox.Warning)
@@ -316,8 +334,9 @@ class Login(Main, QMainWindow):
             msg.setWindowTitle('Ошибка')
             msg.setText('Вход не выполнен.')
             msg.setInformativeText(
-                'Одное или несколько из обязательных полей пустое.')
+                'Одно или несколько из обязательных полей пустое.')
             msg.exec()
+        self.lineEdit_password.setText('')
 
     def register(self):
         pass

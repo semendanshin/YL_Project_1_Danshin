@@ -64,13 +64,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="comboBox">
-        <item>
-         <property name="text">
-          <string>Создать новый</string>
-         </property>
-        </item>
-       </widget>
+       <widget class="QComboBox" name="comboBox"/>
       </item>
       <item>
        <widget class="QLabel" name="label">
