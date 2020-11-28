@@ -9,12 +9,13 @@ from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox
 class Main(QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi('main_form.ui', self)
+        uic.loadUi('resources/main_form.ui', self)
         self.show()
         self.current_user = []
         self.survey_window = Survey(self)
         self.edit_window = Edit(self)
         self.login_window = Login(self)
+        self.load_surveys()
         self.pushButton_start.clicked.connect(
             self.survey_window.start_survey)
         self.pushButton_new.clicked.connect(
@@ -30,13 +31,16 @@ class Main(QMainWindow):
             self.comboBox.clear()
             self.comboBox.addItems([el[1] for el in self.surveys])
             self.pushButton_start.setEnabled(len(self.surveys) != 0)
+        else:
+            self.comboBox.clear()
+            self.comboBox.addItem('Войдите в аккаунт/зарегестрируйтесь')
 
 
 class Survey(Main, QMainWindow):
     def __init__(self, parent):
         self.parent = parent
         super(QMainWindow, self).__init__()
-        uic.loadUi('survey_form.ui', self)
+        uic.loadUi('resources/survey_form.ui', self)
         self.pushButton_next.clicked.connect(self.next_question)
         self.pushButton_cancel.clicked.connect(self.end_survey)
         self.pushButton_back.clicked.connect(self.previous_question)
@@ -46,17 +50,17 @@ class Survey(Main, QMainWindow):
 
     def next_question(self):
         self.write_answer()
-        if self.question_index < len(self.questions) - 1:
+        if self.pushButton_next.text() != "Завершить":
             self.question_index += 1
             self.pushButton_back.setEnabled(self.question_index != 0)
             if self.questions[self.question_index][0] in self.answers:
-                answer = self.answers[
-                    self.questions[self.question_index][0]]
-                self.lineEdit.setText(answer)
+                self.lineEdit.setText(self.answers[
+                    self.questions[self.question_index][0]])
             else:
                 self.lineEdit.setText("")
-            text = '{}. ' + self.questions[self.question_index][2]
-            self.label.setText(text.format(self.question_index + 1))
+            self.label.setText('{}. {}'.format(
+                self.question_index + 1,
+                self.questions[self.question_index][2]))
             if self.question_index == len(self.questions) - 1:
                 self.pushButton_next.setText("Завершить")
             else:
@@ -69,13 +73,13 @@ class Survey(Main, QMainWindow):
         self.question_index -= 1
         self.pushButton_back.setEnabled(self.question_index != 0)
         if self.questions[self.question_index][0] in self.answers:
-            answer = self.answers[
-                self.questions[self.question_index][0]]
-            self.lineEdit.setText(answer)
+            self.lineEdit.setText(self.answers[
+                self.questions[self.question_index][0]])
         else:
             self.lineEdit.setText("")
-        text = '{}. ' + self.questions[self.question_index][2]
-        self.label.setText(text.format(self.question_index + 1))
+        self.label.setText('{}. {}'.format(
+            self.question_index + 1,
+            self.questions[self.question_index][2]))
         self.pushButton_next.setText("Дальше")
 
     def write_answer(self):
@@ -86,15 +90,14 @@ class Survey(Main, QMainWindow):
         for el in self.answers.keys():
             cur.execute("""INSERT INTO answers
                 (question_id, user_id, answer) VALUES (?, ?, ?)""", (
-                el, self.parent.current_user[0], self.answers[el][1]))
+                el, self.parent.current_user[0], self.answers[el]))
         con.commit()
-        self.answers.clear()
         self.end_survey()
 
     def start_survey(self):
         if self.parent.current_user:
-            self.parent.hide()
             self.show()
+            self.parent.hide()
             self.answers.clear()
             title = self.parent.comboBox.currentText()
             self.setWindowTitle(title)
@@ -113,14 +116,17 @@ class Survey(Main, QMainWindow):
                 'Для начала нужно войти в аккаунт/зарегестрироваться.'))
 
     def end_survey(self):
-        self.hide()
+        self.pushButton_next.setText("Дальше")
+        self.lineEdit.setText('')
+        self.answers.clear()
         self.parent.show()
+        self.hide()
 
 
 class Edit(Main, QMainWindow):
     def __init__(self, parent):
         super(QMainWindow, self).__init__()
-        uic.loadUi('edit_form.ui', self)
+        uic.loadUi('resources/edit_form.ui', self)
         self.parent = parent
         self.changed = False
         self.current_survey = []
@@ -147,8 +153,8 @@ class Edit(Main, QMainWindow):
                     """SELECT title FROM surveys
                         WHERE deleted=False and creator_id=?""", (
                         self.parent.current_user[0], )).fetchall())])
-            self.parent.hide()
             self.show()
+            self.parent.hide()
             self.display_survey()
         else:
             QMessageBox.warning(self, 'Ошибка', (
@@ -160,9 +166,9 @@ class Edit(Main, QMainWindow):
         self.current_survey = []
         self.comboBox.clear()
         self.comboBox.setCurrentText("Создать новый")
-        self.hide()
         self.parent.load_surveys()
         self.parent.show()
+        self.hide()
 
     def display_survey(self):
         if self.comboBox.currentText() != 'Создать новый':
@@ -281,7 +287,7 @@ class Edit(Main, QMainWindow):
 class Login(Main, QMainWindow):
     def __init__(self, parent):
         super(QMainWindow, self).__init__()
-        uic.loadUi('login_form.ui', self)
+        uic.loadUi('resources/login_form.ui', self)
         self.parent = parent
         self.register_window = Register(self)
         self.pushButton_cancel.clicked.connect(self.end_login)
@@ -294,11 +300,10 @@ class Login(Main, QMainWindow):
         self.parent.hide()
 
     def end_login(self):
+        self.parent.load_surveys()
+        self.parent.show()
         self.hide()
         self.lineEdit_login.setText('')
-        self.lineEdit_password.setText('')
-        self.parent.show()
-        self.parent.load_surveys()
 
     def login(self):
         if len(self.lineEdit_login.text()) > 0 and (
@@ -314,14 +319,14 @@ class Login(Main, QMainWindow):
                     id, first_name, second_name FROM users WHERE login=?""", (
                         self.lineEdit_login.text(), )))[0]
                     self.parent.pushButton_start_login.setText('Выйти')
+                    self.parent.pushButton_start_login.disconnect()
+                    self.parent.pushButton_start_login.clicked.connect(
+                        self.logout)
                     self.parent.label_name.setText(
                         'Здравствуйте, {} {}'.format(
                             self.parent.current_user[1],
                             self.parent.current_user[2]))
                     self.end_login()
-                    self.parent.pushButton_start_login.disconnect()
-                    self.parent.pushButton_start_login.clicked.connect(
-                        self.logout)
                 else:
                     QMessageBox.warning(self, 'Ошибка', (
                         'Вход не выполнен.\n'
@@ -329,7 +334,7 @@ class Login(Main, QMainWindow):
             else:
                 QMessageBox.warning(self, 'Ошибка', (
                     'Вход не выполнен.\n'
-                    'Неверный логин.'))
+                    'Такого логина не существует.'))
         else:
             QMessageBox.warning(self, 'Ошибка', (
                 'Вход не выполнен.\n'
@@ -341,13 +346,14 @@ class Login(Main, QMainWindow):
         self.parent.pushButton_start_login.disconnect()
         self.parent.pushButton_start_login.clicked.connect(self.start_login)
         self.parent.pushButton_start_login.setText('Вход/Регистрация')
+        self.parent.load_surveys()
         self.parent.label_name.setText('')
 
 
 class Register(Login, QMainWindow):
     def __init__(self, parent):
         super(QMainWindow, self).__init__()
-        uic.loadUi('register_form.ui', self)
+        uic.loadUi('resources/register_form.ui', self)
         self.parent = parent
         self.pushButton_register.clicked.connect(self.register)
 
@@ -404,7 +410,7 @@ class Register(Login, QMainWindow):
 
 
 if __name__ == '__main__':
-    con = sqlite3.connect('survey_db.sqlite')
+    con = sqlite3.connect('resources/survey_db.sqlite')
     cur = con.cursor()
     app = QApplication(sys.argv)
     worker = Main()
