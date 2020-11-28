@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>773</width>
-    <height>616</height>
+    <height>611</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -61,14 +61,14 @@
        </spacer>
       </item>
       <item>
-       <widget class="Line" name="line_2">
+       <widget class="QComboBox" name="comboBox"/>
+      </item>
+      <item>
+       <widget class="Line" name="line_6">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
        </widget>
-      </item>
-      <item>
-       <widget class="QComboBox" name="comboBox"/>
       </item>
       <item>
        <widget class="QLabel" name="label">
@@ -135,13 +135,6 @@
        </layout>
       </item>
       <item>
-       <widget class="Line" name="line_3">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QTableWidget" name="tableWidget">
         <property name="maximumSize">
          <size>
@@ -154,6 +147,13 @@
         </property>
         <property name="selectionMode">
          <enum>QAbstractItemView::SingleSelection</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="Line" name="line_5">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
         </property>
        </widget>
       </item>
@@ -173,6 +173,13 @@
           </property>
           <property name="text">
            <string>Удалить опрос</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_export">
+          <property name="text">
+           <string>Экспорт ответов</string>
           </property>
          </widget>
         </item>

@@ -1,15 +1,16 @@
 import sys
 import sqlite3
-from PyQt5 import uic
+import csv
+from PyQt5 import uic, QtGui
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox
-# Добавить автосохранение во вкладке edit; css оформление; Добавить обязательные вопросы; Экспорт;
+# css оформление; Добавить обязательные вопросы; Экспорт;
 
 
 class Main(QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi('resources/main_form.ui', self)
+        uic.loadUi('resources\\main_form.ui', self)
         self.show()
         self.current_user = []
         self.survey_window = Survey(self)
@@ -40,13 +41,41 @@ class Survey(Main, QMainWindow):
     def __init__(self, parent):
         self.parent = parent
         super(QMainWindow, self).__init__()
-        uic.loadUi('resources/survey_form.ui', self)
+        uic.loadUi('resources\\survey_form.ui', self)
         self.pushButton_next.clicked.connect(self.next_question)
         self.pushButton_cancel.clicked.connect(self.end_survey)
         self.pushButton_back.clicked.connect(self.previous_question)
         self.pushButton_back.setEnabled(False)
         self.label.setWordWrap(True)
         self.answers = dict()
+
+    def start_survey(self):
+        if self.parent.current_user:
+            self.show()
+            self.parent.hide()
+            self.answers.clear()
+            title = self.parent.comboBox.currentText()
+            self.setWindowTitle(title)
+            request = f"""SELECT questions.id, surveys.id, question
+                FROM questions JOIN surveys
+                ON questions.survey_id=surveys.id
+                WHERE title='{title}'
+                and questions.deleted=False
+                ORDER BY questions.id"""
+            self.questions = list(cur.execute(request))
+            self.question_index = -1
+            self.next_question()
+        else:
+            QMessageBox.warning(self, 'Ошибка', (
+                'Невозможно пройти опрос.\n'
+                'Для начала нужно войти в аккаунт/зарегестрироваться.'))
+
+    def end_survey(self):
+        self.pushButton_next.setText("Дальше")
+        self.lineEdit.setText('')
+        self.answers.clear()
+        self.parent.show()
+        self.hide()
 
     def next_question(self):
         self.write_answer()
@@ -94,43 +123,16 @@ class Survey(Main, QMainWindow):
         con.commit()
         self.end_survey()
 
-    def start_survey(self):
-        if self.parent.current_user:
-            self.show()
-            self.parent.hide()
-            self.answers.clear()
-            title = self.parent.comboBox.currentText()
-            self.setWindowTitle(title)
-            request = f"""SELECT questions.id, surveys.id, question
-                FROM questions JOIN surveys
-                ON questions.survey_id=surveys.id
-                WHERE title='{title}'
-                and questions.deleted=False
-                ORDER BY questions.id"""
-            self.questions = list(cur.execute(request))
-            self.question_index = -1
-            self.next_question()
-        else:
-            QMessageBox.warning(self, 'Ошибка', (
-                'Невозможно пройти опрос.\n'
-                'Для начала нужно войти в аккаунт/зарегестрироваться.'))
-
-    def end_survey(self):
-        self.pushButton_next.setText("Дальше")
-        self.lineEdit.setText('')
-        self.answers.clear()
-        self.parent.show()
-        self.hide()
-
 
 class Edit(Main, QMainWindow):
     def __init__(self, parent):
         super(QMainWindow, self).__init__()
-        uic.loadUi('resources/edit_form.ui', self)
+        uic.loadUi('resources\\edit_form.ui', self)
         self.parent = parent
         self.changed = False
         self.current_survey = []
         self.pushButton_save.setEnabled(False)
+        self.pushButton_export.clicked.connect(self.export_answers)
         self.pushButton_cancel.clicked.connect(self.end_edit)
         self.pushButton_minus.clicked.connect(self.delete_question)
         self.pushButton_plus.clicked.connect(self.add_question)
@@ -139,9 +141,6 @@ class Edit(Main, QMainWindow):
         self.lineEdit_2.textChanged.connect(self.survey_changed)
         self.lineEdit.textChanged.connect(self.survey_changed)
         self.tableWidget.itemChanged.connect(self.survey_changed)
-        self.tableWidget.setColumnCount(1)
-        self.tableWidget.setHorizontalHeaderLabels(
-            ['Формулировка вопроса'])
         self.tableWidget.resizeColumnToContents(0)
 
     def start_edit(self):
@@ -153,6 +152,8 @@ class Edit(Main, QMainWindow):
                     """SELECT title FROM surveys
                         WHERE deleted=False and creator_id=?""", (
                         self.parent.current_user[0], )).fetchall())])
+            self.pushButton_save.setEnabled(False)
+            self.changed = False
             self.show()
             self.parent.hide()
             self.display_survey()
@@ -162,13 +163,14 @@ class Edit(Main, QMainWindow):
                 'Для начала нужно войти в аккаунт/зарегестрироваться.'))
 
     def end_edit(self):
-        self.comboBox.disconnect()
-        self.current_survey = []
-        self.comboBox.clear()
-        self.comboBox.setCurrentText("Создать новый")
-        self.parent.load_surveys()
-        self.parent.show()
-        self.hide()
+        if self.check_for_changes():
+            self.comboBox.disconnect()
+            self.current_survey = []
+            self.comboBox.clear()
+            self.comboBox.setCurrentText("Создать новый")
+            self.parent.load_surveys()
+            self.parent.show()
+            self.hide()
 
     def display_survey(self):
         if self.comboBox.currentText() != 'Создать новый':
@@ -192,6 +194,9 @@ class Edit(Main, QMainWindow):
                 FROM questions WHERE survey_id=? and deleted=False
                 ORDER BY id""", (str(self.current_survey[0]), )))
             if self.current_questions:
+                self.tableWidget.setColumnCount(1)
+                self.tableWidget.setHorizontalHeaderLabels(
+                    ['Формулировка вопроса'])
                 self.tableWidget.setRowCount(len(self.current_questions))
                 for i, el in enumerate(self.current_questions):
                     for j, val in enumerate(el):
@@ -200,8 +205,8 @@ class Edit(Main, QMainWindow):
                         self.tableWidget.resizeColumnToContents(0)
         else:
             self.tableWidget.setRowCount(0)
+            self.tableWidget.setColumnCount(0)
         self.pushButton_save.setEnabled(False)
-        self.changed = False
 
     def add_question(self):
         i = self.tableWidget.rowCount()
@@ -248,10 +253,12 @@ class Edit(Main, QMainWindow):
                         str(self.current_survey[0]), question_text))
                 con.commit()
 
+                self.changed = False
                 self.comboBox.addItem(self.current_survey[1])
                 if self.comboBox.currentText() != 'Создать новый':
                     self.comboBox.removeItem(self.comboBox.currentIndex())
                 self.comboBox.setCurrentText(self.current_survey[1])
+                return True
             else:
                 QMessageBox.warning(self, 'Ошибка', (
                     'Невозможно сохранить опрос.\n'
@@ -280,14 +287,38 @@ class Edit(Main, QMainWindow):
         self.pushButton_save.setEnabled(True)
         self.changed = True
 
-    def check_for_changes(self):
+    def export_answers(self):
         pass
+
+    def check_for_changes(self):
+        if self.changed:
+            msg = QMessageBox()
+            msg.setWindowTitle('Внимание')
+            msg.setText('В этом опросе присутствуют несохраненные изменния.\n'
+                        'Хотите их сохранить?')
+            msg.setIcon(QMessageBox.Warning)
+            msg.setStandardButtons(QMessageBox.Ok | (
+                QMessageBox.Cancel) | QMessageBox.Discard)
+            msg.button(QMessageBox.Ok).setText('Да')
+            msg.button(QMessageBox.Cancel).setText('Отмена')
+            msg.button(QMessageBox.Discard).setText('Нет')
+            msg.setWindowIcon(QtGui.QIcon('project1logo.ico'))
+            result = msg.exec()
+            if result == QMessageBox.Ok:
+                if self.save_survey():
+                    return True
+            elif result == QMessageBox.Discard:
+                self.pushButton_save.setEnabled(False)
+                self.changed = False
+                return True
+            elif result == QMessageBox.Cancel:
+                return False
 
 
 class Login(Main, QMainWindow):
     def __init__(self, parent):
         super(QMainWindow, self).__init__()
-        uic.loadUi('resources/login_form.ui', self)
+        uic.loadUi('resources\\login_form.ui', self)
         self.parent = parent
         self.register_window = Register(self)
         self.pushButton_cancel.clicked.connect(self.end_login)
@@ -353,9 +384,10 @@ class Login(Main, QMainWindow):
 class Register(Login, QMainWindow):
     def __init__(self, parent):
         super(QMainWindow, self).__init__()
-        uic.loadUi('resources/register_form.ui', self)
+        uic.loadUi('resources\\register_form.ui', self)
         self.parent = parent
         self.pushButton_register.clicked.connect(self.register)
+        self.pushButton_cancel.clicked.connect(self.end_register)
 
     def start_register(self):
         self.show()
@@ -410,7 +442,7 @@ class Register(Login, QMainWindow):
 
 
 if __name__ == '__main__':
-    con = sqlite3.connect('resources/survey_db.sqlite')
+    con = sqlite3.connect('resources\\survey_db.sqlite')
     cur = con.cursor()
     app = QApplication(sys.argv)
     worker = Main()
