@@ -4,7 +4,6 @@ from PyQt5 import uic, QtGui
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox
-# css оформление; Добавить обязательные вопросы; Экспорт; Добавить настройки для аккаунтов
 
 
 class Main(QMainWindow):
@@ -23,6 +22,7 @@ class Main(QMainWindow):
         self.pushButton_start_login.clicked.connect(
             self.login_window.start_login)
 
+    # Загрузка доступных опросов
     def load_surveys(self):
         if self.current_user:
             self.comboBox.clear()
@@ -47,8 +47,11 @@ class Survey(Main, QMainWindow):
         self.pushButton_back.setEnabled(False)
         self.answers = dict()
 
+    # Открытие окна прохождения опросов
     def start_survey(self):
+        # Проверка входа в аккаунт
         if self.parent.current_user:
+            # Проверка единоразового прохождения опроса пользоваелем
             if len(list(cur.execute(
                 """SELECT answers.id FROM answers
                 JOIN questions ON answers.question_id=questions.id
@@ -79,6 +82,7 @@ class Survey(Main, QMainWindow):
                 'Невозможно пройти опрос.\n'
                 'Для начала нужно войти в аккаунт/зарегестрироваться.'))
 
+    # Закрытие окна прохождения опросов
     def end_survey(self):
         self.pushButton_next.setText("Дальше")
         self.lineEdit.setText('')
@@ -86,6 +90,7 @@ class Survey(Main, QMainWindow):
         self.parent.show()
         self.hide()
 
+    # Отображение следующего вопроса
     def next_question(self):
         self.write_answer()
         if self.pushButton_next.text() == "Дальше":
@@ -106,6 +111,7 @@ class Survey(Main, QMainWindow):
         else:
             self.save_answers()
 
+    # Отображение предыдущего вопроса
     def previous_question(self):
         self.write_answer()
         if self.question_index > 0:
@@ -121,10 +127,12 @@ class Survey(Main, QMainWindow):
                 self.questions[self.question_index][1]))
             self.pushButton_next.setText("Дальше")
 
+    # Запись ответов в времнный словарь
     def write_answer(self):
         self.answers[self.questions[
             self.question_index][0]] = self.lineEdit.text()
 
+    # Запись ответов в БД
     def save_answers(self):
         for el in self.answers.keys():
             cur.execute("""INSERT INTO answers
@@ -163,6 +171,7 @@ class Edit(Main, QMainWindow):
         self.lineEdit.textChanged.connect(self.survey_changed)
         self.tableWidget.itemChanged.connect(self.survey_changed)
 
+    # Открытие окна редактирования опросов
     def start_edit(self):
         if self.parent.current_user:
             self.comboBox.blockSignals(False)
@@ -181,6 +190,7 @@ class Edit(Main, QMainWindow):
                 'Невозможно вносить изменения в опросы.\n'
                 'Для начала нужно войти в аккаунт/зарегестрироваться.'))
 
+    # Закрытие окна редактирования опросов
     def end_edit(self):
         if self.check_for_changes():
             self.comboBox.blockSignals(True)
@@ -190,6 +200,7 @@ class Edit(Main, QMainWindow):
             self.parent.show()
             self.hide()
 
+    # Отоюражение даных об опросе
     def display_survey(self):
         self.lineEdit.blockSignals(True)
         self.lineEdit_2.blockSignals(True)
@@ -212,6 +223,7 @@ class Edit(Main, QMainWindow):
         self.lineEdit_2.blockSignals(False)
         self.tableWidget.blockSignals(False)
 
+    # Отображение вопросов в таблице
     def display_questions(self):
         if self.current_survey:
             self.current_questions = list(cur.execute("""SELECT question
@@ -231,6 +243,7 @@ class Edit(Main, QMainWindow):
             self.tableWidget.setRowCount(0)
             self.tableWidget.setColumnCount(0)
 
+    # Добавление опроса в таблицу
     def add_question(self):
         self.tableWidget.setColumnCount(1)
         self.tableWidget.setHorizontalHeaderLabels(
@@ -240,6 +253,7 @@ class Edit(Main, QMainWindow):
         self.tableWidget.setItem(i, 0, QTableWidgetItem(''))
         self.survey_changed()
 
+    # Удаление вопроса из таблицы
     def delete_question(self):
         item = self.tableWidget.selectedItems()
         if item:
@@ -247,13 +261,18 @@ class Edit(Main, QMainWindow):
             self.tableWidget.resizeColumnToContents(0)
             self.survey_changed()
 
+    # Сохранение опросов
     def save_survey(self):
+        # Проверка наличия хотя бы одного вопроса и названия опроса
         if self.tableWidget.rowCount() > 0 and self.lineEdit.text() != '':
+            # Проверка на уникальность названия опроса при создании нового
             if self.comboBox.currentText() != 'Создать новый' or (
                     self.lineEdit.text() not in [el[0] for el in list(
                     cur.execute("""SELECT title FROM surveys
                     WHERE deleted=False"""))] and (
                         self.lineEdit.text() != 'Создать новый')):
+                # Удаление старых записей об опросе,
+                # если редактируется существующий опрос
                 if self.comboBox.currentText() != 'Создать новый':
                     cur.execute("""UPDATE surveys SET deleted=True
                         WHERE id=?""", (str(self.current_survey[0]), ))
@@ -262,7 +281,7 @@ class Edit(Main, QMainWindow):
                     self.comboBox.blockSignals(True)
                     self.comboBox.removeItem(self.comboBox.currentIndex())
                     self.comboBox.blockSignals(False)
-
+                # Запись данных об опросе
                 cur.execute("""INSERT INTO surveys
                     (title, description, creator_id) VALUES
                     (?, ?, ?)""", (
@@ -273,7 +292,7 @@ class Edit(Main, QMainWindow):
                 self.current_survey = list(cur.execute("""SELECT id, title,
                     description FROM surveys WHERE title=? and
                     deleted=False""", (self.lineEdit.text(), )))[0]
-
+                # Запись вопросов
                 for i in range(self.tableWidget.rowCount()):
                     question_text = self.tableWidget.item(i, 0).text()
                     cur.execute("""INSERT INTO questions
@@ -295,6 +314,7 @@ class Edit(Main, QMainWindow):
                 'У каждого опроса должно быть уникальное '
                 'название и, как минимум, один вопрос.'))
 
+    # Удаление опросов из базы данных
     def delete_survey(self):
         if self.comboBox.currentText() != 'Создать новый':
             self.changed = False
@@ -307,17 +327,19 @@ class Edit(Main, QMainWindow):
                 str(self.current_survey[0]), ))
             con.commit()
             self.comboBox.removeItem(self.comboBox.currentIndex())
-        self.comboBox.setCurrentText("Создать новый")
+            self.comboBox.setCurrentText("Создать новый")
+        else:
+            self.display_survey()
 
     def survey_changed(self):
         self.tableWidget.resizeColumnToContents(0)
         self.pushButton_save.setEnabled(True)
         self.changed = True
-        print(self.sender)
 
     def export_answers(self):
         pass
 
+    # Проверка на несохраненные изменения и, их сохранение
     def check_for_changes(self):
         if self.changed:
             msg = QMessageBox()
@@ -345,6 +367,7 @@ class Edit(Main, QMainWindow):
             return True
 
 
+# Форма, реализующая вход в аккаунт
 class Login(Main, QMainWindow):
     def __init__(self, parent):
         super(QMainWindow, self).__init__()
@@ -356,22 +379,28 @@ class Login(Main, QMainWindow):
             self.register_window.start_register)
         self.pushButton_login.clicked.connect(self.login)
 
+    # Открытие окна входа
     def start_login(self):
         self.show()
         self.parent.hide()
 
+    # Закрытие окна входа
     def end_login(self):
         self.parent.load_surveys()
         self.parent.show()
         self.hide()
         self.lineEdit_login.setText('')
 
+    # Вход в аккаунт
     def login(self):
+        # Проверка на пустые поля
         if len(self.lineEdit_login.text()) > 0 and (
                 len(self.lineEdit_password.text()) > 0):
+            # Проверка на правильность логина
             if self.lineEdit_login.text() in [el[0] for el in list(
                 cur.execute("""SELECT login FROM users
                     WHERE deleted=False"""))]:
+                # Проверка на правильность пароля
                 if self.lineEdit_password.text() == list(
                     cur.execute("""SELECT password FROM users
                     WHERE login=? and deleted=False""", (
@@ -402,6 +431,7 @@ class Login(Main, QMainWindow):
                 'Одно или несколько из обязательных полей пустое.'))
         self.lineEdit_password.setText('')
 
+    # Выход из текущего аккаунта
     def logout(self):
         self.parent.current_user = []
         self.parent.pushButton_start_login.disconnect()
@@ -415,6 +445,7 @@ class Login(Main, QMainWindow):
             self.login()
 
 
+# Форма, реализующая регистрацию пользователей
 class Register(Login, QMainWindow):
     def __init__(self, parent):
         super(QMainWindow, self).__init__()
@@ -423,10 +454,12 @@ class Register(Login, QMainWindow):
         self.pushButton_register.clicked.connect(self.register)
         self.pushButton_cancel.clicked.connect(self.end_register)
 
+    # Открытие окна регистрации
     def start_register(self):
         self.show()
         self.parent.hide()
 
+    # Закрытие окна регистрации
     def end_register(self):
         self.hide()
         self.lineEdit_login.setText('')
@@ -438,15 +471,19 @@ class Register(Login, QMainWindow):
         self.comboBox.setCurrentText('Мужской')
         self.parent.show()
 
+    # Регистрация
     def register(self):
+        # Проверка на пустые поля
         if self.lineEdit_login.text() != '' and (
                 self.lineEdit_password.text()) != '' and (
                 self.lineEdit_password2.text()) != '' and (
                 self.lineEdit_firstname.text()) != '' and (
                 self.lineEdit_secondname.text()) != '':
+            # Проверка на уникальность логина
             if self.lineEdit_login.text() not in [el[0] for el in list(
                 cur.execute("""SELECT login FROM users
                     WHERE deleted=False"""))]:
+                # Проверка пароля
                 if self.lineEdit_password.text() == (
                         self.lineEdit_password2.text()):
                     sex = 1 if self.comboBox.currentText() == 'Мужской' else 0
