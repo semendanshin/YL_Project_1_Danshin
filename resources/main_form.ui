@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>500</width>
-    <height>222</height>
+    <height>227</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -21,6 +21,9 @@
     <width>16777215</width>
     <height>16777215</height>
    </size>
+  </property>
+  <property name="focusPolicy">
+   <enum>Qt::StrongFocus</enum>
   </property>
   <property name="contextMenuPolicy">
    <enum>Qt::DefaultContextMenu</enum>

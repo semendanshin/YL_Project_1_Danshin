@@ -10,6 +10,9 @@
     <height>611</height>
    </rect>
   </property>
+  <property name="focusPolicy">
+   <enum>Qt::StrongFocus</enum>
+  </property>
   <property name="windowTitle">
    <string>Создание/Редактирование опросов</string>
   </property>
@@ -73,7 +76,7 @@
       <item>
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>Название опроса:</string>
+         <string>Название опроса*</string>
         </property>
        </widget>
       </item>
@@ -83,7 +86,7 @@
       <item>
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>Описание опроса:</string>
+         <string>Описание опроса</string>
         </property>
        </widget>
       </item>
@@ -102,7 +105,7 @@
         <item>
          <widget class="QLabel" name="label_3">
           <property name="text">
-           <string>Вопросы:</string>
+           <string>Вопросы*</string>
           </property>
          </widget>
         </item>
@@ -169,7 +172,7 @@
         <item>
          <widget class="QPushButton" name="pushButton_delete">
           <property name="enabled">
-           <bool>false</bool>
+           <bool>true</bool>
           </property>
           <property name="text">
            <string>Удалить опрос</string>
