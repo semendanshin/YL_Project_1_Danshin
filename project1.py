@@ -159,10 +159,9 @@ class Edit(Main, QMainWindow):
         uic.loadUi('resources\\edit_form.ui', self)
         self.parent = parent
         self.current_survey = []
-        self.pushButton_export.clicked.connect(self.export_answers)
         self.pushButton_cancel.clicked.connect(self.end_edit)
-        self.pushButton_minus.clicked.connect(self.delete_question)
-        self.pushButton_plus.clicked.connect(self.add_question)
+        self.pushButton_minus.clicked.connect(self.delete_question_from_table)
+        self.pushButton_plus.clicked.connect(self.add_question_to_table)
         self.pushButton_save.clicked.connect(self.save_survey)
         self.pushButton_delete.clicked.connect(self.delete_survey)
         self.comboBox.currentTextChanged.connect(self.display_survey)
@@ -213,7 +212,6 @@ class Edit(Main, QMainWindow):
             self.lineEdit_2.setText(self.current_survey[2])
         else:
             self.current_survey = []
-            self.current_questions = []
             self.lineEdit.setText('')
             self.lineEdit_2.setText('')
         self.display_questions()
@@ -226,15 +224,15 @@ class Edit(Main, QMainWindow):
     # Отображение вопросов в таблице
     def display_questions(self):
         if self.current_survey:
-            self.current_questions = list(cur.execute("""SELECT question
+            current_questions = list(cur.execute("""SELECT question
                 FROM questions WHERE survey_id=? and deleted=False
                 ORDER BY id""", (str(self.current_survey[0]), )))
-            if self.current_questions:
+            if current_questions:
                 self.tableWidget.setColumnCount(1)
                 self.tableWidget.setHorizontalHeaderLabels(
                     ['Формулировка вопроса'])
-                self.tableWidget.setRowCount(len(self.current_questions))
-                for i, el in enumerate(self.current_questions):
+                self.tableWidget.setRowCount(len(current_questions))
+                for i, el in enumerate(current_questions):
                     for j, val in enumerate(el):
                         self.tableWidget.setItem(
                             i, j, QTableWidgetItem(str(val)))
@@ -243,8 +241,8 @@ class Edit(Main, QMainWindow):
             self.tableWidget.setRowCount(0)
             self.tableWidget.setColumnCount(0)
 
-    # Добавление опроса в таблицу
-    def add_question(self):
+    # Добавление вопроса в таблицу
+    def add_question_to_table(self):
         self.tableWidget.setColumnCount(1)
         self.tableWidget.setHorizontalHeaderLabels(
             ['Формулировка вопроса'])
@@ -254,7 +252,7 @@ class Edit(Main, QMainWindow):
         self.survey_changed()
 
     # Удаление вопроса из таблицы
-    def delete_question(self):
+    def delete_question_from_table(self):
         item = self.tableWidget.selectedItems()
         if item:
             self.tableWidget.removeRow(item[0].row())
@@ -263,24 +261,14 @@ class Edit(Main, QMainWindow):
 
     # Сохранение опросов
     def save_survey(self):
-        # Проверка наличия хотя бы одного вопроса и названия опроса
+        # Проверка наличия названия опроса и, хотя бы одного вопроса
         if self.tableWidget.rowCount() > 0 and self.lineEdit.text() != '':
             # Проверка на уникальность названия опроса при создании нового
-            if self.comboBox.currentText() != 'Создать новый' or (
-                    self.lineEdit.text() not in [el[0] for el in list(
-                    cur.execute("""SELECT title FROM surveys
-                    WHERE deleted=False"""))] and (
-                        self.lineEdit.text() != 'Создать новый')):
+            if self.check_for_unique_title():
                 # Удаление старых записей об опросе,
                 # если редактируется существующий опрос
                 if self.comboBox.currentText() != 'Создать новый':
-                    cur.execute("""UPDATE surveys SET deleted=True
-                        WHERE id=?""", (str(self.current_survey[0]), ))
-                    cur.execute("""UPDATE questions SET deleted=True
-                        WHERE survey_id=?""", (str(self.current_survey[0]), ))
-                    self.comboBox.blockSignals(True)
-                    self.comboBox.removeItem(self.comboBox.currentIndex())
-                    self.comboBox.blockSignals(False)
+                    self.delete_records_about_survey()
                 # Запись данных об опросе
                 cur.execute("""INSERT INTO surveys
                     (title, description, creator_id) VALUES
@@ -288,72 +276,71 @@ class Edit(Main, QMainWindow):
                             self.lineEdit.text(),
                             self.lineEdit_2.text(),
                             self.parent.current_user[0]))
-
                 self.current_survey = list(cur.execute("""SELECT id, title,
                     description FROM surveys WHERE title=? and
                     deleted=False""", (self.lineEdit.text(), )))[0]
-                # Запись вопросов
+                # Сохранение вопросов
                 for i in range(self.tableWidget.rowCount()):
                     question_text = self.tableWidget.item(i, 0).text()
                     cur.execute("""INSERT INTO questions
                         (survey_id, question) VALUES (?, ?)""", (
                         str(self.current_survey[0]), question_text))
                 con.commit()
-
                 self.comboBox.addItem(self.current_survey[1])
                 self.comboBox.setCurrentText(self.current_survey[1])
-                self.changed = False
                 return True
             else:
-                QMessageBox.warning(self, 'Ошибка', (
-                    'Невозможно сохранить опрос.\n'
-                    'Опрос с таким названием уже существует.'))
+                self.raise_edit_warning_message(
+                    'Опрос с таким названием уже существует.')
         else:
-            QMessageBox.warning(self, 'Ошибка', (
-                'Невозможно сохранить опрос.\n'
+            self.raise_edit_warning_message(
                 'У каждого опроса должно быть уникальное '
-                'название и, как минимум, один вопрос.'))
+                'название и, как минимум, один вопрос.')
+
+    def raise_edit_warning_message(self, text):
+        QMessageBox.warning(
+            self, 'Ошибка', 'Невозможно сохранить опрос.\n' + text)
 
     # Удаление опросов из базы данных
     def delete_survey(self):
         if self.comboBox.currentText() != 'Создать новый':
-            self.changed = False
-            cur.execute("""UPDATE surveys SET deleted=True
-                WHERE id=? and deleted=False""", (
-                str(self.current_survey[0]), ))
-            cur.execute("""UPDATE questions
-                SET deleted=True WHERE survey_id=?
-                and deleted=False""", (
-                str(self.current_survey[0]), ))
+            self.delete_records_about_survey()
             con.commit()
-            self.comboBox.removeItem(self.comboBox.currentIndex())
             self.comboBox.setCurrentText("Создать новый")
-        else:
-            self.display_survey()
+        self.display_survey()
+
+    def delete_records_about_survey(self):
+        cur.execute("""UPDATE surveys SET deleted=True
+                        WHERE id=?""", (str(self.current_survey[0]), ))
+        cur.execute("""UPDATE questions SET deleted=True
+            WHERE survey_id=?""", (str(self.current_survey[0]), ))
+        self.comboBox.blockSignals(True)
+        self.comboBox.removeItem(self.comboBox.currentIndex())
+        self.comboBox.blockSignals(False)
+        self.changed = False
 
     def survey_changed(self):
         self.tableWidget.resizeColumnToContents(0)
         self.pushButton_save.setEnabled(True)
         self.changed = True
 
-    def export_answers(self):
-        pass
+    def ask_about_save(self):
+        msg = QMessageBox()
+        msg.setWindowTitle('Внимание')
+        msg.setText('В этом опросе присутствуют несохраненные изменения.\n'
+                    'Хотите их сохранить?')
+        msg.setIcon(QMessageBox.Warning)
+        msg.setStandardButtons(QMessageBox.Ok | (
+            QMessageBox.Cancel) | QMessageBox.Discard)
+        msg.button(QMessageBox.Ok).setText('Да')
+        msg.button(QMessageBox.Cancel).setText('Отмена')
+        msg.button(QMessageBox.Discard).setText('Нет')
+        msg.setWindowIcon(QtGui.QIcon('resources\\project1logo.ico'))
+        return msg.exec()
 
-    # Проверка на несохраненные изменения и, их сохранение
     def check_for_changes(self):
         if self.changed:
-            msg = QMessageBox()
-            msg.setWindowTitle('Внимание')
-            msg.setText('В этом опросе присутствуют несохраненные изменения.\n'
-                        'Хотите их сохранить?')
-            msg.setIcon(QMessageBox.Warning)
-            msg.setStandardButtons(QMessageBox.Ok | (
-                QMessageBox.Cancel) | QMessageBox.Discard)
-            msg.button(QMessageBox.Ok).setText('Да')
-            msg.button(QMessageBox.Cancel).setText('Отмена')
-            msg.button(QMessageBox.Discard).setText('Нет')
-            msg.setWindowIcon(QtGui.QIcon('resources\\project1logo.ico'))
-            result = msg.exec()
+            result = self.ask_about_save()
             if result == QMessageBox.Ok:
                 if self.save_survey():
                     return True
@@ -365,6 +352,13 @@ class Edit(Main, QMainWindow):
                 return False
         else:
             return True
+
+    def check_for_unique_title(self):
+        return self.comboBox.currentText() != 'Создать новый' or (
+            self.lineEdit.text() not in [el[0] for el in list(
+                cur.execute("""SELECT title FROM surveys
+                WHERE deleted=False"""))] and (
+                self.lineEdit.text() != 'Создать новый'))
 
 
 # Форма, реализующая вход в аккаунт
@@ -418,18 +412,18 @@ class Login(Main, QMainWindow):
                             self.parent.current_user[2]))
                     self.end_login()
                 else:
-                    QMessageBox.warning(self, 'Ошибка', (
-                        'Вход не выполнен.\n'
-                        'Неверный пароль.'))
+                    self.raise_login_warning_message(
+                        'Неверный пароль.')
             else:
-                QMessageBox.warning(self, 'Ошибка', (
-                    'Вход не выполнен.\n'
-                    'Такого логина не существует.'))
+                self.raise_login_warning_message(
+                    'Такого логина не существует.')
         else:
-            QMessageBox.warning(self, 'Ошибка', (
-                'Вход не выполнен.\n'
-                'Одно или несколько из обязательных полей пустое.'))
+            self.raise_login_warning_message(
+                'Одно или несколько из обязательных полей пустое.')
         self.lineEdit_password.setText('')
+
+    def raise_login_warning_message(self, text):
+        QMessageBox.warning(self, 'Ошибка', 'Вход не выполнен.\n' + text)
 
     # Выход из текущего аккаунта
     def logout(self):
@@ -501,17 +495,18 @@ class Register(Login, QMainWindow):
                         'Регистрация пройдена успешно.'))
                     self.end_register()
                 else:
-                    QMessageBox.warning(self, 'Ошибка', (
-                        'Регистрация не выполнена.\n'
-                        'Пароли не совпадают.'))
+                    self.raise_register_warning_message(
+                        'Пароли не совпадают.')
             else:
-                QMessageBox.warning(self, 'Ошибка', (
-                    'Регистрация не выполнена.\n'
-                    'Такой логин уже существует.'))
+                self.raise_register_warning_message(
+                    'Такой логин уже существует.')
         else:
-            QMessageBox.warning(self, 'Ошибка', (
-                'Регистрация не выполнена.\n'
-                'Необходимо заполнить все поля.'))
+            self.raise_register_warning_message(
+                'Необходимо заполнить все поля.')
+
+    def raise_register_warning_message(self, text):
+        QMessageBox.warning(
+            self, 'Ошибка', 'Регистрация не выполнена.\n' + text)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Return:
